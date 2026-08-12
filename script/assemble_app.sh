@@ -30,16 +30,12 @@ else
 fi
 BUILD_BINARY="$BIN_PATH/$APP_NAME"
 RESOURCE_BUNDLE="$(find "$BIN_PATH" -maxdepth 1 -type d -name 'TokenBloom_TokenBloom.bundle' -print -quit)"
-ICON_SOURCE="$ROOT_DIR/Sources/TokenBloom/Resources/AppIcon.icns"
 
 [[ -x "$BUILD_BINARY" ]] || { echo "missing executable: $BUILD_BINARY" >&2; exit 3; }
-[[ -f "$ICON_SOURCE" ]] || { echo "missing app icon: $ICON_SOURCE" >&2; exit 3; }
-
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_MACOS/$APP_NAME"
 chmod +x "$APP_MACOS/$APP_NAME"
-cp "$ICON_SOURCE" "$APP_RESOURCES/AppIcon.icns"
 if [[ -n "$RESOURCE_BUNDLE" ]]; then
   cp -R "$RESOURCE_BUNDLE" "$APP_RESOURCES/"
 fi
@@ -50,7 +46,6 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <plist version="1.0"><dict>
 <key>CFBundleDisplayName</key><string>$APP_NAME</string>
 <key>CFBundleExecutable</key><string>$APP_NAME</string>
-<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
 <key>CFBundleName</key><string>$APP_NAME</string>
 <key>CFBundlePackageType</key><string>APPL</string>

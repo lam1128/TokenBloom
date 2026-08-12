@@ -154,21 +154,10 @@ struct ProviderLogo: View {
     let size: CGFloat
 
     var body: some View {
-        Group {
-            if let image = providerImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .renderingMode(.original)
-                    .foregroundStyle(provider.accent)
-                    .scaledToFit()
-            }
-        }
+        Image(systemName: "sparkles")
+            .font(.system(size: size * 0.52, weight: .semibold))
+            .foregroundStyle(provider.accent)
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
-    }
-
-    private var providerImage: NSImage? {
-        guard let url = QuotaResourceBundle.current.url(forResource: "codex-official", withExtension: "png") else { return nil }
-        return NSImage(contentsOf: url)
     }
 }

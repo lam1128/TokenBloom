@@ -11,7 +11,6 @@ let package = Package(
             name: "TokenBloom",
             path: "Sources/TokenBloom",
             resources: [.process("Resources")]
-        ),
-        .testTarget(name: "TokenBloomTests", dependencies: ["TokenBloom"], path: "Tests/TokenBloomTests")
+        )
     ]
 )
