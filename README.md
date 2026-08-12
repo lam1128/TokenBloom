@@ -92,6 +92,4 @@ docs/                     安装与发布说明
 
 更多信息见 [PRIVACY.md](PRIVACY.md) 和 [SECURITY.md](SECURITY.md)。
 
-## 许可证
 
-[MIT License](LICENSE) © 2026 Token Bloom Contributors
