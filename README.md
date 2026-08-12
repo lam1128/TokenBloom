@@ -1,7 +1,3 @@
-<h1 align="center">Token Bloom</h1>
-
-<p align="center">macOS 菜单栏中的 Codex 双账号额度查看器</p>
-
 Token Bloom 是一个原生 macOS 菜单栏工具，用于同时查看两个 Codex 账号的额度、重置时间和本地使用状态。它直接读取本机登录信息，不经过第三方中转服务器。
 
 ## 功能
