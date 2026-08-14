@@ -1,14 +1,22 @@
 import AppKit
+import Observation
 import SwiftUI
+
+@Observable
+@MainActor
+final class FloatingWindowPresentation {
+    var compact = true
+}
 
 @MainActor
 final class FloatingWindowController: NSObject {
     private let store: QuotaStore
     private let language: LanguageSettings
+    private let presentation = FloatingWindowPresentation()
     private var panel: NSPanel?
-    private var compact = true
-    private var hoverMonitor: Any?
     private var pointerTimer: Timer?
+
+    private var compact: Bool { presentation.compact }
 
     init(store: QuotaStore, language: LanguageSettings) {
         self.store = store
@@ -24,7 +32,7 @@ final class FloatingWindowController: NSObject {
             backing: .buffered,
             defer: false
         )
-        panel.contentView = makeHostingView(compact: true)
+        panel.contentView = makeHostingView()
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -36,7 +44,6 @@ final class FloatingWindowController: NSObject {
         position(panel, size: initialSize)
         panel.orderFrontRegardless()
         self.panel = panel
-        installHoverMonitor()
         pointerTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.evaluatePointer() }
         }
@@ -48,29 +55,31 @@ final class FloatingWindowController: NSObject {
     }
 
     private func rootView() -> some View {
-        FloatingQuotaView(store: store, language: language, compact: Binding(
-            get: { self.compact },
-            set: { self.setCompact($0) }
-        ))
+        FloatingQuotaView(
+            store: store,
+            language: language,
+            presentation: presentation,
+            setCompact: { [weak self] compact in self?.setCompact(compact) }
+        )
     }
 
     private func setCompact(_ value: Bool) {
         guard compact != value, let panel else { return }
-        compact = value
         let oldTopRight = NSPoint(x: panel.frame.maxX, y: panel.frame.maxY)
         let size = value ? compactSize : NSSize(width: 356, height: expandedHeight)
         let target = NSRect(x: oldTopRight.x - size.width, y: oldTopRight.y - size.height, width: size.width, height: size.height)
         panel.setFrame(target, display: false)
-        panel.contentView = makeHostingView(compact: value)
-        panel.displayIfNeeded()
+        presentation.compact = value
+        panel.contentView?.layer?.masksToBounds = !value
+        panel.contentView?.layer?.cornerRadius = value ? 0 : 28
     }
 
-    private func makeHostingView(compact: Bool) -> NSView {
+    private func makeHostingView() -> NSView {
         let hosting = NSHostingView(rootView: rootView())
         hosting.autoresizingMask = [.width, .height]
         hosting.wantsLayer = true
-        hosting.layer?.masksToBounds = !compact
-        hosting.layer?.cornerRadius = compact ? 0 : 28
+        hosting.layer?.masksToBounds = false
+        hosting.layer?.cornerRadius = 0
         hosting.layer?.cornerCurve = .continuous
         return hosting
     }
@@ -86,16 +95,6 @@ final class FloatingWindowController: NSObject {
     private func position(_ panel: NSPanel, size: NSSize) {
         guard let visible = NSScreen.main?.visibleFrame else { return }
         panel.setFrameOrigin(NSPoint(x: visible.maxX - size.width - 18, y: visible.maxY - size.height - 18))
-    }
-
-    private func installHoverMonitor() {
-        hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
-            Task { @MainActor in self?.evaluatePointer() }
-        }
-        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
-            self?.evaluatePointer()
-            return event
-        }
     }
 
     private func evaluatePointer() {

@@ -55,8 +55,6 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSLocationWhenInUseUsageDescription</key><string>用于根据 Mac 当前所在位置显示实时天气背景。</string>
-<key>NSLocationUsageDescription</key><string>用于根据 Mac 当前所在位置显示实时天气背景。</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict></plist>
 PLIST

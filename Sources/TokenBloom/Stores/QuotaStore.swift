@@ -9,16 +9,11 @@ final class QuotaStore {
     private(set) var errorMessageKey: String?
     private(set) var isRefreshing = false
     private(set) var activeProviderIds: Set<String> = []
-    private(set) var weather: WeatherSnapshot?
-    private(set) var locationStatusKey: String?
     private(set) var codexResetCredits: [String: CodexResetCredits] = [:]
     private(set) var codexHomes: [URL]
 
-    private let weatherClient = WeatherClient()
-    private let locationClient = LocationClient()
     private let logger = Logger(subsystem: "com.cmsjcm.TokenBloom", category: "quota")
     private var activityTask: Task<Void, Never>?
-    private var weatherTask: Task<Void, Never>?
     private var codexTask: Task<Void, Never>?
 
     init() {
@@ -34,12 +29,6 @@ final class QuotaStore {
 
     var codexAccounts: [CodexAccountConfiguration] {
         codexHomes.enumerated().map { CodexAccountConfiguration(index: $0.offset + 1, home: $0.element) }
-    }
-
-    var isConsuming: Bool { !activeProviderIds.isEmpty }
-
-    func isConsuming(_ provider: ProviderUsage) -> Bool {
-        activeProviderIds.contains(provider.id)
     }
 
     func resetCredits(for provider: ProviderUsage) -> CodexResetCredits? {
@@ -64,10 +53,8 @@ final class QuotaStore {
 
     func start() async {
         activityTask = Task { await monitorLocalActivity() }
-        weatherTask = Task { await monitorWeather() }
         defer {
             activityTask?.cancel()
-            weatherTask?.cancel()
             codexTask?.cancel()
         }
         await refresh()
@@ -77,40 +64,13 @@ final class QuotaStore {
         }
     }
 
-    private func monitorWeather() async {
-        while !Task.isCancelled {
-            do {
-                let location = try await locationClient.currentLocation()
-                let locationName = await locationClient.displayName(for: location, language: .simplifiedChinese)
-                let englishLocationName = await locationClient.displayName(for: location, language: .english)
-                weather = try await weatherClient.fetch(
-                    latitude: location.coordinate.latitude,
-                    longitude: location.coordinate.longitude,
-                    locationName: locationName,
-                    englishLocationName: englishLocationName
-                )
-                locationStatusKey = nil
-            } catch LocationClient.LocationError.permissionDenied {
-                weather = nil
-                locationStatusKey = "location.permissionDenied"
-            } catch LocationClient.LocationError.servicesDisabled {
-                weather = nil
-                locationStatusKey = "location.servicesDisabled"
-            } catch {
-                locationStatusKey = "location.weatherFailed"
-            }
-            try? await Task.sleep(for: .seconds(600))
-        }
-    }
-
     func refresh() async {
-        guard !isRefreshing else { return }
+        guard !isRefreshing, codexTask == nil else { return }
         isRefreshing = true
         defer { isRefreshing = false }
-        guard codexTask == nil else { return }
 
         let accounts = codexAccounts
-        codexTask = Task { [weak self] in
+        let task = Task { [weak self] in
             await withTaskGroup(of: (CodexAccountConfiguration, CodexDirectSnapshot?).self) { group in
                 for account in accounts {
                     group.addTask {
@@ -124,6 +84,8 @@ final class QuotaStore {
                 self.codexTask = nil
             }
         }
+        codexTask = task
+        await task.value
     }
 
     private func applyCodex(_ results: [(CodexAccountConfiguration, CodexDirectSnapshot?)]) {
@@ -145,19 +107,28 @@ final class QuotaStore {
 
     private func monitorLocalActivity() async {
         while !Task.isCancelled {
-            let detected = detectLocalActivity()
+            let accounts = codexAccounts
+            let detected = await Task.detached(priority: .utility) {
+                LocalActivityDetector.activeProviderIDs(in: accounts)
+            }.value
+            guard !Task.isCancelled else { return }
             activeProviderIds = detected
             try? await Task.sleep(for: .seconds(1))
         }
     }
+}
 
-    private func detectLocalActivity(now: Date = .now) -> Set<String> {
-        return Set(codexAccounts.compactMap { account in
-            return hasRecentSessionActivity(in: account.home, now: now) ? account.id : nil
+private enum LocalActivityDetector {
+    static func activeProviderIDs(
+        in accounts: [CodexAccountConfiguration],
+        now: Date = .now
+    ) -> Set<String> {
+        Set(accounts.compactMap { account in
+            hasRecentSessionActivity(in: account.home, now: now) ? account.id : nil
         })
     }
 
-    private func hasRecentSessionActivity(in home: URL, now: Date) -> Bool {
+    private static func hasRecentSessionActivity(in home: URL, now: Date) -> Bool {
         let roots = [
             home.appendingPathComponent("sessions", isDirectory: true),
             home.appendingPathComponent("thread-writer-locks", isDirectory: true)
@@ -184,9 +155,18 @@ final class QuotaStore {
         return hasRecentDatabaseActivity(in: home)
     }
 
-    private func hasRecentDatabaseActivity(in home: URL) -> Bool {
+    private static func hasRecentDatabaseActivity(in home: URL) -> Bool {
         let database = home.appendingPathComponent("logs_2.sqlite")
         guard FileManager.default.fileExists(atPath: database.path) else { return false }
+        let writeAheadLog = URL(fileURLWithPath: database.path + "-wal")
+        let recentWrite = [database, writeAheadLog].contains { url in
+            guard let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate else {
+                return false
+            }
+            let age = Date.now.timeIntervalSince(modified)
+            return age >= -1 && age <= 20
+        }
+        guard recentWrite else { return false }
 
         let query = """
         SELECT target || '|' || COALESCE(feedback_log_body, '')

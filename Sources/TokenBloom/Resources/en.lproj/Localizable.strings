@@ -43,31 +43,17 @@
 "settings.approvalRequired" = "macOS needs you to allow Token Bloom in System Settings.";
 "settings.openLoginItems" = "Open Login Items";
 "settings.data" = "Data";
-"settings.quotaSource" = "Quota source";
 "settings.chooseFolder" = "Choose folder";
 "settings.refreshRate" = "Refresh interval";
 "settings.refreshRate.value" = "60 seconds";
-"settings.privacy" = "Account credentials are read locally and sent only to the official quota endpoints; coordinates are sent only to the weather service for local conditions.";
+"settings.privacy" = "Account credentials are read locally and sent only to the official quota endpoints.";
 
 "login.enabled" = "Enabled";
 "login.disabled" = "Disabled";
 "login.requiresApproval" = "Approval required";
 "login.unknown" = "Unknown";
 
-"location.permissionDenied" = "Location not allowed";
-"location.servicesDisabled" = "Location disabled";
-"location.weatherFailed" = "Weather unavailable";
-"location.current" = "Current location";
 "error.quotaUnavailable" = "No Codex account quota is available";
-
-"weather.clear" = "Clear";
-"weather.partlyCloudy" = "Partly cloudy";
-"weather.cloudy" = "Cloudy";
-"weather.fog" = "Fog";
-"weather.rain" = "Rain";
-"weather.snow" = "Snow";
-"weather.storm" = "Thunderstorm";
-"weather.changing" = "Changing weather";
 
 "time.daysHours" = "%d days %d hours";
 "time.hoursMinutes" = "%d hours %d minutes";

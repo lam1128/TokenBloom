@@ -43,31 +43,17 @@
 "settings.approvalRequired" = "macOS 需要你在系统设置中允许 Token Bloom。";
 "settings.openLoginItems" = "打开登录项设置";
 "settings.data" = "数据";
-"settings.quotaSource" = "额度来源";
 "settings.chooseFolder" = "选择文件夹";
 "settings.refreshRate" = "刷新频率";
 "settings.refreshRate.value" = "60 秒";
-"settings.privacy" = "账号凭据只从本机读取并直接用于官方额度接口；位置坐标仅发送给天气服务以获取当地天气。";
+"settings.privacy" = "账号凭据只从本机读取，并直接用于官方额度接口。";
 
 "login.enabled" = "已启用";
 "login.disabled" = "未启用";
 "login.requiresApproval" = "需要系统批准";
 "login.unknown" = "状态未知";
 
-"location.permissionDenied" = "定位未授权";
-"location.servicesDisabled" = "定位已关闭";
-"location.weatherFailed" = "天气同步失败";
-"location.current" = "当前位置";
 "error.quotaUnavailable" = "暂时读不到 Codex 账号额度";
-
-"weather.clear" = "晴";
-"weather.partlyCloudy" = "多云";
-"weather.cloudy" = "阴";
-"weather.fog" = "雾";
-"weather.rain" = "雨";
-"weather.snow" = "雪";
-"weather.storm" = "雷雨";
-"weather.changing" = "天气变化中";
 
 "time.daysHours" = "%d 天 %d 小时";
 "time.hoursMinutes" = "%d 小时 %d 分钟";

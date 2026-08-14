@@ -3,40 +3,35 @@ import SwiftUI
 struct FloatingQuotaView: View {
     let store: QuotaStore
     let language: LanguageSettings
-    @Binding var compact: Bool
+    @Bindable var presentation: FloatingWindowPresentation
+    let setCompact: (Bool) -> Void
 
     var body: some View {
-        if compact { compactView } else { expandedView }
+        if presentation.compact { compactView } else { expandedView }
     }
 
     private var compactView: some View {
-        Group {
-            if #available(macOS 26.0, *) {
-                GlassEffectContainer(spacing: 0) {
-                    compactBadges
-                }
-            } else {
-                compactBadges
-            }
-        }
+        compactBadges
         .frame(width: compactWidth, height: 56)
         .contentShape(Rectangle())
-        .onTapGesture { compact = false }
-        .onHover { if $0 { compact = false } }
+        .onTapGesture { setCompact(false) }
     }
 
     private var compactBadges: some View {
         CompactQuotaBadge(
             providers: store.providers,
-            activeProviderIds: store.activeProviderIds,
-            health: store.health
+            activeProviderIds: store.activeProviderIds
         )
     }
 
     private var expandedView: some View {
         let activeProviderIds = store.activeProviderIds
         return ZStack {
-            WeatherBackdrop(weather: store.weather, fallbackHealth: store.health)
+            LinearGradient(
+                colors: store.health.backgroundColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
 
             VStack(spacing: 0) {
                 header
@@ -95,20 +90,6 @@ struct FloatingQuotaView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
                     .help(language.text("header.switchLanguage"))
-                    if let weather = store.weather {
-                        Text("·").opacity(0.55)
-                        Label(
-                            weatherSummary(weather),
-                            systemImage: weather.symbolName
-                        )
-                            .labelStyle(.titleAndIcon)
-                            .lineLimit(1)
-                            .help(weatherDetail(weather))
-                    } else if let locationStatusKey = store.locationStatusKey {
-                        Text("·").opacity(0.55)
-                        Label(language.text(locationStatusKey), systemImage: "location.slash")
-                            .labelStyle(.titleAndIcon)
-                    }
                 }
                 .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(.secondary)
@@ -117,7 +98,7 @@ struct FloatingQuotaView: View {
             Text(QuotaFormatters.percent(store.lowestRemaining))
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-            Button { compact = true } label: {
+            Button { setCompact(true) } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .bold))
                     .frame(width: 25, height: 25)
@@ -164,23 +145,12 @@ struct FloatingQuotaView: View {
         }
     }
 
-    private func weatherSummary(_ weather: WeatherSnapshot) -> String {
-        let location = weather.displayLocation(language: language.language)
-        if language.language == .english { return "\(location) · \(weather.temperature)°" }
-        return "\(location) \(weather.condition(language: language)) \(weather.temperature)°"
-    }
-
-    private func weatherDetail(_ weather: WeatherSnapshot) -> String {
-        "\(weather.displayLocation(language: language.language)) · \(weather.condition(language: language)) · \(weather.temperature)°"
-    }
-
     private var compactWidth: CGFloat { 64 }
 }
 
 private struct CompactQuotaBadge: View {
     let providers: [ProviderUsage]
     let activeProviderIds: Set<String>
-    let health: QuotaHealth
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let shape = RoundedRectangle(cornerRadius: 17, style: .continuous)
