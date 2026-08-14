@@ -56,7 +56,7 @@ struct ProviderCard: View {
     }
 
     private var activityIndicator: some View {
-        TimelineView(.animation(minimumInterval: isConsuming && !reduceMotion ? 1 / 20 : 1)) { timeline in
+        TimelineView(.periodic(from: .now, by: isConsuming && !reduceMotion ? 1 / 20 : 1)) { timeline in
             let phase = isConsuming && !reduceMotion ? timeline.date.timeIntervalSinceReferenceDate : 0
             ZStack {
                 Circle()

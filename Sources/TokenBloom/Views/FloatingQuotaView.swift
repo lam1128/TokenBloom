@@ -268,7 +268,7 @@ private struct CompactQuotaBadge: View {
 
     @ViewBuilder
     private var activityMarquee: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1 / 24)) { timeline in
+        TimelineView(.periodic(from: .now, by: reduceMotion ? 1 : 1 / 24)) { timeline in
             if isActive {
                 let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
                 let angle = Angle.degrees(phase.truncatingRemainder(dividingBy: 2.8) / 2.8 * 360)
