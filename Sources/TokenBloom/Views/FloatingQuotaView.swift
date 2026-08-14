@@ -230,18 +230,14 @@ private struct CompactQuotaBadge: View {
 
             VStack(alignment: .center, spacing: 2) {
                 ForEach(providers.prefix(2)) { provider in
-                    let isConsuming = activeProviderIds.contains(provider.id)
                     Text("\(planAbbreviation(for: provider))·\(compactPercent(providerLowest(provider)))")
                         .font(.system(
                             size: 11,
-                            weight: isConsuming ? .black : .regular,
+                            weight: activeProviderIds.contains(provider.id) ? .bold : .regular,
                             design: .rounded
                         ))
                         .monospacedDigit()
-                        .foregroundStyle(
-                            Color(red: 0.34, green: 0.11, blue: 0.19)
-                                .opacity(isConsuming ? 1 : 0.68)
-                        )
+                        .foregroundStyle(Color(red: 0.34, green: 0.11, blue: 0.19))
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
                         .allowsTightening(true)
