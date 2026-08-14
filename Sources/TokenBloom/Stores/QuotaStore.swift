@@ -152,28 +152,34 @@ final class QuotaStore {
     }
 
     private func detectLocalActivity(now: Date = .now) -> Set<String> {
-        let dayFormatter = DateFormatter()
-        dayFormatter.dateFormat = "yyyy/MM/dd"
         return Set(codexAccounts.compactMap { account in
-            let codexDirectory = account.home
-                .appendingPathComponent("sessions", isDirectory: true)
-                .appendingPathComponent(dayFormatter.string(from: now), isDirectory: true)
-            return hasRecentlyModifiedJSONL(in: codexDirectory, now: now) ? account.id : nil
+            return hasRecentSessionActivity(in: account.home, now: now) ? account.id : nil
         })
     }
 
-    private func hasRecentlyModifiedJSONL(in directory: URL, now: Date) -> Bool {
-        guard let enumerator = FileManager.default.enumerator(
-            at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return false }
+    private func hasRecentSessionActivity(in home: URL, now: Date) -> Bool {
+        let roots = [
+            home.appendingPathComponent("sessions", isDirectory: true),
+            home.appendingPathComponent("thread-writer-locks", isDirectory: true)
+        ]
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey]
 
-        for case let fileURL as URL in enumerator where fileURL.pathExtension == "jsonl" {
-            guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey, .isRegularFileKey]),
-                  values.isRegularFile == true,
-                  let modified = values.contentModificationDate else { continue }
-            if ActivityDetectionPolicy.isActive(modifiedAt: modified, now: now) { return true }
+        for root in roots {
+            guard let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: Array(keys),
+                options: []
+            ) else { continue }
+
+            for case let fileURL as URL in enumerator {
+                let isSession = fileURL.pathExtension == "jsonl"
+                let isWriterLock = root.lastPathComponent == "thread-writer-locks"
+                guard isSession || isWriterLock,
+                      let values = try? fileURL.resourceValues(forKeys: keys),
+                      values.isRegularFile == true,
+                      let modified = values.contentModificationDate else { continue }
+                if ActivityDetectionPolicy.isActive(modifiedAt: modified, now: now) { return true }
+            }
         }
         return false
     }
