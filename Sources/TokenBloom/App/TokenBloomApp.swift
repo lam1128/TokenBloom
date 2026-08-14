@@ -13,12 +13,7 @@ struct TokenBloomApp: App {
                 language: appDelegate.language
             )
         } label: {
-            HStack(spacing: 4) {
-                MenuBarQuotaGlyph()
-                Text(QuotaFormatters.percent(appDelegate.store.lowestRemaining).replacingOccurrences(of: "%", with: ""))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-            }
+            MenuBarQuotaGlyph()
         }
 
         Settings { SettingsView(store: appDelegate.store, language: appDelegate.language) }
