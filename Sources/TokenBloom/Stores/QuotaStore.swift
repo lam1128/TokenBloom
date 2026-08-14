@@ -186,7 +186,7 @@ private extension Array {
 }
 
 enum ActivityDetectionPolicy {
-    static let recentWriteWindow: TimeInterval = 4
+    static let recentWriteWindow: TimeInterval = 8
 
     static func isActive(modifiedAt: Date, now: Date) -> Bool {
         let age = now.timeIntervalSince(modifiedAt)

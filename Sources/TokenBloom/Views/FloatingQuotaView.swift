@@ -190,9 +190,7 @@ private struct CompactQuotaBadge: View {
 
     var body: some View {
         ZStack {
-            if isActive {
-                activityMarquee
-            }
+            activityMarquee
 
             badgeSurface
                 .frame(width: isActive ? 47.2 : 52, height: isActive ? 47.2 : 52)
@@ -270,8 +268,8 @@ private struct CompactQuotaBadge: View {
 
     @ViewBuilder
     private var activityMarquee: some View {
-        if isActive {
-            TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1 / 24)) { timeline in
+        TimelineView(.animation(minimumInterval: reduceMotion ? 1 : 1 / 24)) { timeline in
+            if isActive {
                 let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
                 let angle = Angle.degrees(phase.truncatingRemainder(dividingBy: 2.8) / 2.8 * 360)
                 shape
@@ -298,6 +296,8 @@ private struct CompactQuotaBadge: View {
                             .padding(0.55)
                     }
                     .padding(0.15)
+            } else {
+                Color.clear
             }
         }
     }
