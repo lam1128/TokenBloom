@@ -181,7 +181,45 @@ final class QuotaStore {
                 if ActivityDetectionPolicy.isActive(modifiedAt: modified, now: now) { return true }
             }
         }
-        return false
+        return hasRecentDatabaseActivity(in: home)
+    }
+
+    private func hasRecentDatabaseActivity(in home: URL) -> Bool {
+        let database = home.appendingPathComponent("logs_2.sqlite")
+        guard FileManager.default.fileExists(atPath: database.path) else { return false }
+
+        let query = """
+        SELECT target || '|' || COALESCE(feedback_log_body, '')
+        FROM logs
+        WHERE ts >= strftime('%s', 'now') - 15
+        ORDER BY ts DESC, ts_nanos DESC
+        LIMIT 80;
+        """
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        process.arguments = ["-readonly", "-batch", database.path, query]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return false
+        }
+
+        guard process.terminationStatus == 0,
+              let text = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) else {
+            return false
+        }
+        let activityMarkers = [
+            "submission_dispatch",
+            "session_task.turn",
+            "run_sampling_request",
+            "item/started"
+        ]
+        return activityMarkers.contains { text.localizedCaseInsensitiveContains($0) }
     }
 }
 
