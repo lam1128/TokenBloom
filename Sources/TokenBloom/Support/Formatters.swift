@@ -4,7 +4,7 @@ enum QuotaFormatters {
     static func reset(language: AppLanguage) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = language.locale
-        formatter.dateFormat = language == .simplifiedChinese ? "M月d日 HH:mm" : "MMM d, HH:mm"
+        formatter.dateFormat = language == .simplifiedChinese ? "M月d日 EEE HH:mm" : "MMM d, EEE HH:mm"
         return formatter
     }
 
