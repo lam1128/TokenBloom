@@ -15,7 +15,7 @@ struct TokenBloomApp: App {
         } label: {
             HStack(spacing: 4) {
                 MenuBarQuotaGlyph()
-                Text(QuotaFormatters.percent(appDelegate.store.lowestRemaining))
+                Text(QuotaFormatters.percent(appDelegate.store.lowestRemaining).replacingOccurrences(of: "%", with: ""))
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .monospacedDigit()
             }
