@@ -119,6 +119,17 @@ final class QuotaStore {
 }
 
 private enum LocalActivityDetector {
+    private enum TaskState: Equatable {
+        case active
+        case inactive
+    }
+
+    private static let stateMarkers: [(text: String, state: TaskState)] = [
+        ("\"type\":\"task_started\"", .active),
+        ("\"type\":\"task_complete\"", .inactive),
+        ("\"type\":\"turn_aborted\"", .inactive)
+    ]
+
     static func activeProviderIDs(
         in accounts: [CodexAccountConfiguration],
         now: Date = .now
@@ -129,30 +140,59 @@ private enum LocalActivityDetector {
     }
 
     private static func hasRecentSessionActivity(in home: URL, now: Date) -> Bool {
-        let roots = [
-            home.appendingPathComponent("sessions", isDirectory: true),
-            home.appendingPathComponent("thread-writer-locks", isDirectory: true)
-        ]
+        let root = home.appendingPathComponent("sessions", isDirectory: true)
         let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey]
 
-        for root in roots {
-            guard let enumerator = FileManager.default.enumerator(
-                at: root,
-                includingPropertiesForKeys: Array(keys),
-                options: []
-            ) else { continue }
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]
+        ) else { return hasRecentDatabaseActivity(in: home) }
 
-            for case let fileURL as URL in enumerator {
-                let isSession = fileURL.pathExtension == "jsonl"
-                let isWriterLock = root.lastPathComponent == "thread-writer-locks"
-                guard isSession || isWriterLock,
-                      let values = try? fileURL.resourceValues(forKeys: keys),
-                      values.isRegularFile == true,
-                      let modified = values.contentModificationDate else { continue }
-                if ActivityDetectionPolicy.isActive(modifiedAt: modified, now: now) { return true }
-            }
+        var foundSessionState = false
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "jsonl",
+                  let values = try? fileURL.resourceValues(forKeys: keys),
+                  values.isRegularFile == true,
+                  let modified = values.contentModificationDate,
+                  ActivityDetectionPolicy.isRecentlyWritten(modifiedAt: modified, now: now),
+                  let state = latestTaskState(in: fileURL) else { continue }
+            foundSessionState = true
+            if state == .active { return true }
         }
-        return hasRecentDatabaseActivity(in: home)
+        return foundSessionState ? false : hasRecentDatabaseActivity(in: home)
+    }
+
+    private static func latestTaskState(in fileURL: URL) -> TaskState? {
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return nil }
+        defer { try? handle.close() }
+
+        let fileSize = (try? handle.seekToEnd()) ?? 0
+        let chunkSize: UInt64 = 64 * 1_024
+        let maximumScanSize: UInt64 = 4 * 1_024 * 1_024
+        let markerOverlap = (stateMarkers.map(\.text.utf8.count).max() ?? 0) - 1
+        var followingPrefix = Data()
+        var offset = fileSize
+        var scanned: UInt64 = 0
+
+        while offset > 0, scanned < maximumScanSize {
+            let length = min(chunkSize, min(offset, maximumScanSize - scanned))
+            offset -= length
+            try? handle.seek(toOffset: offset)
+            var data = handle.readData(ofLength: Int(length))
+            data.append(followingPrefix)
+
+            let text = String(decoding: data, as: UTF8.self)
+            let latest = stateMarkers.compactMap { marker -> (String.Index, TaskState)? in
+                guard let range = text.range(of: marker.text, options: .backwards) else { return nil }
+                return (range.lowerBound, marker.state)
+            }.max { $0.0 < $1.0 }
+            if let latest { return latest.1 }
+
+            followingPrefix = Data(data.prefix(markerOverlap))
+            scanned += length
+        }
+        return nil
     }
 
     private static func hasRecentDatabaseActivity(in home: URL) -> Bool {
@@ -169,11 +209,15 @@ private enum LocalActivityDetector {
         guard recentWrite else { return false }
 
         let query = """
-        SELECT target || '|' || COALESCE(feedback_log_body, '')
+        SELECT COALESCE(feedback_log_body, '')
         FROM logs
-        WHERE ts >= strftime('%s', 'now') - 15
+        WHERE ts >= strftime('%s', 'now') - 21600
+          AND (
+            feedback_log_body LIKE '%app-server event: turn/started%'
+            OR feedback_log_body LIKE '%app-server event: turn/completed%'
+          )
         ORDER BY ts DESC, ts_nanos DESC
-        LIMIT 80;
+        LIMIT 1;
         """
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
@@ -193,13 +237,7 @@ private enum LocalActivityDetector {
               let text = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) else {
             return false
         }
-        let activityMarkers = [
-            "submission_dispatch",
-            "session_task.turn",
-            "run_sampling_request",
-            "item/started"
-        ]
-        return activityMarkers.contains { text.localizedCaseInsensitiveContains($0) }
+        return text.localizedCaseInsensitiveContains("app-server event: turn/started")
     }
 }
 
@@ -210,9 +248,9 @@ private extension Array {
 }
 
 enum ActivityDetectionPolicy {
-    static let recentWriteWindow: TimeInterval = 8
+    static let recentWriteWindow: TimeInterval = 30
 
-    static func isActive(modifiedAt: Date, now: Date) -> Bool {
+    static func isRecentlyWritten(modifiedAt: Date, now: Date) -> Bool {
         let age = now.timeIntervalSince(modifiedAt)
         return age >= -1 && age <= recentWriteWindow
     }
